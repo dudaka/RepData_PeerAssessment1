@@ -186,16 +186,26 @@ median(updated.total.steps.per.day$total.steps, na.rm = TRUE)
 ## [1] 10762
 ```
 
-The previous part, the histogram without imputing missing values
-
 
 ```r
-g <- ggplot(data = total.steps.per.day, aes(total.steps)) 
-g <- g + geom_histogram()
-g + ggtitle("Total number of steps taken each day")
+updated.total.steps.per.day <- summarise(group_by(filled.activity, date), 
+                                                total.steps = sum(steps))
+
+cols <- c("Imputed" = "red", "Original" = "blue")
+
+g <- ggplot(total.steps.per.day, aes(total.steps)) 
+g <- g + geom_histogram(data = updated.total.steps.per.day, 
+                        aes(colour = "Imputed", fill = "Imputed", alpha = "Imputed"))
+g <- g + geom_histogram(data = total.steps.per.day, 
+                        aes(colour = "Original", fill = "Original", alpha = "Original"))
+
+g <- g + ggtitle("Total number of steps taken each day for Old vs. New Data set") 
+g <- g + scale_color_manual(name="Bar",values=cols) + scale_fill_manual(name="Bar",values=cols) 
+g + scale_alpha_manual(name="Bar",values=c("Imputed"=0.2, "Original"=0.2))
 ```
 
 ```
+## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
 ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
 ```
 
