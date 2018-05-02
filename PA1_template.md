@@ -10,9 +10,35 @@ output:
 
 
 ```r
+library(dplyr)
+```
+
+```
+## 
+## Attaching package: 'dplyr'
+```
+
+```
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+```
+
+```
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+```
+
+```r
+library(ggplot2)
+
 activity <- read.table("activity.csv", header = TRUE, sep = ",", 
                        na.strings = "NA", stringsAsFactors = FALSE)
 activity$date <- as.Date(activity$date)
+
+total.steps.per.day <- summarise(group_by(activity, date), 
+                                        total.steps = sum(steps))
 
 str(activity)
 ```
@@ -28,55 +54,76 @@ str(activity)
 
 
 ```r
-g <- ggplot2::ggplot(data = activity, ggplot2::aes(date, steps)) 
-g <- g + ggplot2::stat_summary(fun.y = sum, geom = "bar", na.rm = TRUE)
-g <- g + ggplot2::xlab("Date") + ggplot2::ylab("Total Steps")
-g + ggplot2::ggtitle("Total number of steps taken each day")
+g <- ggplot(data = total.steps.per.day, aes(total.steps)) 
+g <- g + geom_histogram()
+g + ggtitle("Total number of steps taken each day")
+```
+
+```
+## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+```
+
+```
+## Warning: Removed 8 rows containing non-finite values (stat_bin).
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
 
+The **mean** total number of steps taken per day:
+
 
 ```r
-per.day <- dplyr::summarise(dplyr::group_by(activity, date), 
-                            total.steps = sum(steps, na.rm = T))
-mean.steps <- round(mean(per.day$total.steps))
-median.steps <- median(per.day$total.steps)
+mean(total.steps.per.day$total.steps, na.rm = TRUE)
 ```
 
-The **mean** total number of steps taken per day is 9354.
+```
+## [1] 10766.19
+```
 
-The **median** total number of steps taken per day is 10395.
+The **median** total number of steps taken per day:
+
+
+```r
+median(total.steps.per.day$total.steps, na.rm = TRUE)
+```
+
+```
+## [1] 10765
+```
 
 ## What is the average daily activity pattern?
 
 
 ```r
-g <- ggplot2::ggplot(activity, ggplot2::aes(x = interval, y = steps))
-g <- g + ggplot2::geom_line()
-g <- g + ggplot2::xlab("Interval") + ggplot2::ylab("Number of Steps")
-g + ggplot2::ggtitle("Time series plot for all days")
+average.steps <- summarise(group_by(activity, interval),
+                                  average = mean(steps, na.rm = TRUE))
+
+g <- ggplot(average.steps, aes(x = interval, y = average))
+g <- g + geom_line()
+g <- g + xlab("Interval") + ylab("Average number of Steps")
+g + ggtitle("Time series plot")
 ```
 
-```
-## Warning: Removed 2 rows containing missing values (geom_path).
-```
-
-![](PA1_template_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+![](PA1_template_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
 
 
 ```r
-ind <- which(activity$steps == max(activity$steps, na.rm = TRUE))
-itv <- activity$interval[ind]
+ind <- which(average.steps$average == max(average.steps$average, na.rm = TRUE))
+itv <- average.steps$interval[ind]
 ```
 
-Maximum number of steps at the 615-th interval.
+Maximum number of steps at the 835-th interval.
 
 ## Imputing missing values
 
 
 ```r
-na.total <- summary(activity$steps)[[7]]
+summary(activity$steps)
+```
+
+```
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+##    0.00    0.00    0.00   37.38   12.00  806.00    2304
 ```
 
 There are 2304 missing values in the data set.
@@ -86,53 +133,79 @@ There are 2304 missing values in the data set.
 ```r
 filled.activity <- activity
 
-n <- length(activity$steps[is.na(activity$steps)])
-mean.steps <- mean(activity$steps, na.rm = T)
-sd.steps <- sd(activity$steps, na.rm = T)
-values <- round(runif(n, min = 0, max = round(mean.steps + sd.steps)))
+na.indices <- which(is.na(filled.activity$steps))
+na.intervals <- filled.activity$interval[na.indices]
 
-filled.activity$steps[is.na(filled.activity$steps)] = values
+temp <- sapply(na.intervals, 
+               function(iterv) {
+                       average.steps[average.steps$interval == iterv, "average"]
+                       })
 
-head(filled.activity)
+
+filled.activity$steps[na.indices] <- round(unlist(cbind(temp)))
 ```
 
-```
-##   steps       date interval
-## 1   113 2012-10-01        0
-## 2   128 2012-10-01        5
-## 3   142 2012-10-01       10
-## 4    19 2012-10-01       15
-## 5    92 2012-10-01       20
-## 6    46 2012-10-01       25
-```
-
-All of the missing values in the data set will be replaced with integer values randomly generated 
-between 0 and 149 (sum of mean and standard deviation of number of steps per day)
+Use an integer value (approximated to the mean for that 5-minute interval) to impute missing values.
 
 
 ```r
-g <- ggplot2::ggplot(data = filled.activity, ggplot2::aes(date, steps)) 
-g <- g + ggplot2::stat_summary(fun.y = sum, geom = "bar")
-g <- g + ggplot2::xlab("Date") + ggplot2::ylab("Total Steps")
-g + ggplot2::ggtitle("Total number of steps taken each day in Updated Data Set")
+updated.total.steps.per.day <- summarise(group_by(filled.activity, date), 
+                                                total.steps = sum(steps))
+
+g <- ggplot(data = updated.total.steps.per.day, aes(total.steps)) 
+g <- g + geom_histogram()
+g + ggtitle("Total number of steps taken each day in update data set")
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+```
+## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+
+Updated **mean** total number of steps taken per day:
 
 
 ```r
-new.per.day <- dplyr::summarise(dplyr::group_by(filled.activity, date),
-                                total.steps = sum(steps))
-new.mean.steps <- round(mean(new.per.day$total.steps))
-new.median.steps <- median(new.per.day$total.steps)
+mean(updated.total.steps.per.day$total.steps, na.rm = TRUE)
 ```
 
-The **mean** total number of steps taken per day is 12138.
+```
+## [1] 10765.64
+```
 
-The **median** total number of steps taken per day is 11458.
 
-The new values are slightly diffrent with the previous values since number of NA in the data set is arround 10%.
-The impact of imputing missing data have a small effect on the estimates of the total daily number of steps.
+Updated **median** total number of steps taken per day:
+
+
+```r
+median(updated.total.steps.per.day$total.steps, na.rm = TRUE)
+```
+
+```
+## [1] 10762
+```
+
+The previous part, the histogram without imputing missing values
+
+
+```r
+g <- ggplot(data = total.steps.per.day, aes(total.steps)) 
+g <- g + geom_histogram()
+g + ggtitle("Total number of steps taken each day")
+```
+
+```
+## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+```
+
+```
+## Warning: Removed 8 rows containing non-finite values (stat_bin).
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+The impact of imputing missing data can effectively make the estimates of the total daily number of steps since the mean and median are approximated to the old one, as show as in the two histograms.
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
@@ -146,20 +219,23 @@ head(filled.activity)
 
 ```
 ##   steps       date interval    type
-## 1   113 2012-10-01        0 weekday
-## 2   128 2012-10-01        5 weekday
-## 3   142 2012-10-01       10 weekday
-## 4    19 2012-10-01       15 weekday
-## 5    92 2012-10-01       20 weekday
-## 6    46 2012-10-01       25 weekday
+## 1     2 2012-10-01        0 weekday
+## 2     0 2012-10-01        5 weekday
+## 3     0 2012-10-01       10 weekday
+## 4     0 2012-10-01       15 weekday
+## 5     0 2012-10-01       20 weekday
+## 6     2 2012-10-01       25 weekday
 ```
 
 
 ```r
-g <- ggplot2::ggplot(filled.activity, ggplot2::aes(x = interval, y = steps))
-g <- g + ggplot2::geom_line() + ggplot2::facet_grid(type ~ .)
-g <- g + ggplot2::xlab("Interval") + ggplot2::ylab("Number of Steps")
-g + ggplot2::ggtitle("Time series plot for Weekday vs. Weekend")
+updated.average.steps <- summarise(group_by(filled.activity, interval, type),
+                                          average = mean(steps))
+
+g <- ggplot(updated.average.steps, aes(x = interval, y = average))
+g <- g + geom_line(aes(col = type)) + facet_grid(type ~ .)
+g <- g + xlab("Interval") + ylab("Average number of Steps")
+g + ggtitle("Time series plot for Weekday vs. Weekend")
 ```
 
-![](PA1_template_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](PA1_template_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
